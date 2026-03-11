@@ -1,0 +1,50 @@
+                +----------------------+
+                |      React UI        |
+                |  Chat + Dashboard    |
+                +----------+-----------+
+                           |
+                           | POST /ask
+                           v
+                +----------------------+
+                |      FastAPI API     |
+                |      backend/app.py  |
+                +----------+-----------+
+                           |
+                           v
+                +----------------------+
+                |  AgentWorkflowService|
+                | workflows/agent_...  |
+                +----------+-----------+
+                           |
+                           v
+                +----------------------+
+                |      LangGraph       |
+                |  stateful workflow   |
+                +----------+-----------+
+                           |
+         +-----------------+------------------+
+         |                 |                  |
+         v                 v                  v
++----------------+  +----------------+  +----------------+
+| Planner Agent  |  | Research Agent |  | Writer Agent   |
+| Supervisor     |  | web + RAG      |  | final answer   |
++-------+--------+  +--------+-------+  +--------+-------+
+        |                    |                   ^
+        |                    |                   |
+        |                    v                   |
+        |          +-------------------+         |
+        |          |   ChromaDB / RAG  |         |
+        |          | vector retrieval  |         |
+        |          +-------------------+         |
+        |                                        |
+        | if code needed                         |
+        v                                        |
++----------------+                               |
+| Coding Agent   |-------------------------------+
+| Python exec    |
++----------------+
+
+Other supporting layers:
+- CrewAI: defines agent team roles
+- AutoGen: simulates inter-agent conversation
+- LangChain tools: search + python execution wrappers
