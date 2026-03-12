@@ -5,12 +5,22 @@ from typing import Any
 
 
 class CrewOrchestrator:
-    def describe(self) -> dict[str, Any]:
+    def _preflight(self) -> tuple[bool, str | None]:
         if not os.getenv("OPENAI_API_KEY"):
+            return False, "OPENAI_API_KEY is not set for the backend process."
+        try:
+            import crewai  # noqa: F401
+        except Exception as exc:
+            return False, f"CrewAI import failed: {exc}"
+        return True, None
+
+    def describe(self) -> dict[str, Any]:
+        enabled, error = self._preflight()
+        if not enabled:
             return {
                 "framework": "CrewAI",
                 "enabled": False,
-                "error": "OPENAI_API_KEY is not set for the backend process.",
+                "error": error,
                 "agents": [],
                 "tasks": [],
             }
@@ -64,4 +74,75 @@ class CrewOrchestrator:
                 "error": str(exc),
                 "agents": [],
                 "tasks": [],
+            }
+
+    def run(
+        self,
+        query: str,
+        research_summary: str,
+        code_output: str | None,
+    ) -> dict[str, Any]:
+        enabled, error = self._preflight()
+        if not enabled:
+            return {
+                "framework": "CrewAI",
+                "enabled": False,
+                "error": error,
+                "final_answer": None,
+            }
+
+        try:
+            from crewai import Agent, Crew, Process, Task
+
+            supervisor = Agent(
+                role="Supervisor Agent",
+                goal="Coordinate a concise and accurate final answer.",
+                backstory="Coordinates the research, coding, and writing stages.",
+                verbose=False,
+            )
+            writer = Agent(
+                role="Writer Agent",
+                goal="Produce the final answer for the user.",
+                backstory="Turns workflow outputs into a concise response.",
+                verbose=False,
+            )
+
+            task_description = (
+                f"User query: {query}\n\n"
+                f"Research summary:\n{research_summary}\n\n"
+                f"Code output:\n{code_output or 'No code output was produced.'}\n\n"
+                "Write a short final answer that uses the research summary and code output when relevant."
+            )
+            tasks = [
+                Task(
+                    description="Review the workflow context and define the response objective.",
+                    expected_output="A short handoff summarizing how the final answer should be written.",
+                    agent=supervisor,
+                ),
+                Task(
+                    description=task_description,
+                    expected_output="A concise user-facing answer.",
+                    agent=writer,
+                ),
+            ]
+            crew = Crew(
+                agents=[supervisor, writer],
+                tasks=tasks,
+                process=Process.sequential,
+                verbose=False,
+            )
+            result = crew.kickoff()
+            final_answer = getattr(result, "raw", None) or getattr(result, "output", None) or str(result)
+            return {
+                "framework": "CrewAI",
+                "enabled": True,
+                "error": None,
+                "final_answer": final_answer,
+            }
+        except Exception as exc:
+            return {
+                "framework": "CrewAI",
+                "enabled": False,
+                "error": str(exc),
+                "final_answer": None,
             }

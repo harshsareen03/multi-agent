@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
@@ -8,6 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from workflows.agent_workflow import AgentWorkflowService
+
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover - optional dependency in local dev
+    load_dotenv = None
+
+
+if load_dotenv is not None:
+    load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 class AskRequest(BaseModel):

@@ -241,13 +241,24 @@ class AgentWorkflowService:
 
     def run(self, query: str) -> dict[str, Any]:
         state = self.graph.invoke({"query": query})
+        code_output = None
+        if state.get("code"):
+            stdout = state["code"]["execution"].get("stdout")
+            if isinstance(stdout, str):
+                code_output = stdout
+        crew_result = self.crew.run(
+            query=query,
+            research_summary=state["research"]["summary"],
+            code_output=code_output,
+        )
+        final_response = crew_result["final_answer"] or state["writer"]["final_answer"]
         return {
             "query": query,
-            "crew": self.crew.describe(),
+            "crew": crew_result,
             "plan": state["plan"],
             "research": state["research"],
             "code": state.get("code"),
-            "final_response": state["writer"]["final_answer"],
+            "final_response": final_response,
             "dashboard": state["dashboard"],
             "rag_context": state["research"]["context"],
         }
